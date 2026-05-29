@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Mx Óptica — Sistema Profesional</title>
+<meta name="description" content="Sistema POS Profesional para Ópticas">
+<meta name="theme-color" content="#0f1f3d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mx Óptica">
+<link rel="manifest" href="data:application/json;charset=utf-8,%7B%22name%22%3A%22Mx%20%C3%93ptica%20POS%22%2C%22short_name%22%3A%22Mx%20%C3%93ptica%22%2C%22description%22%3A%22Sistema%20POS%20Profesional%20para%20%C3%93pticas%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230f1f3d%22%2C%22theme_color%22%3A%22%230f1f3d%22%2C%22orientation%22%3A%22portrait%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%253D'http%253A%252F%252Fwww.w3.org%252F2000%252Fsvg'%2520viewBox%253D'0%25200%2520192%2520192'%253E%253Crect%2520width%253D'192'%2520height%253D'192'%2520rx%253D'32'%2520fill%253D'%25230f1f3d'%252F%253E%253Ccircle%2520cx%253D'96'%2520cy%253D'85'%2520r%253D'38'%2520fill%253D'none'%2520stroke%253D'%2500b8a9'%2520stroke-width%253D'10'%252F%253E%253Ccircle%2520cx%253D'96'%2520cy%253D'85'%2520r%253D'14'%2520fill%253D'%2500b8a9'%252F%253E%253Cline%2520x1%253D'96'%2520y1%253D'123'%2520x2%253D'96'%2520y2%253D'155'%2520stroke%253D'%2500b8a9'%2520stroke-width%253D'10'%2520stroke-linecap%253D'round'%252F%253E%253C%252Fsvg%253E%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -1239,6 +1245,24 @@ function gsSetStatus(type, text, sub) {
   }
   if (txt) txt.textContent = text;
   if (sub_) sub_.textContent = sub || '';
+}
+
+async function guardarConfigGoogleSheets() {
+  const urlInput = document.getElementById('gs-webapp-url');
+  const url = urlInput ? urlInput.value.trim() : '';
+  if (!url || !url.startsWith('https://script.google.com')) {
+    alert('Pega una URL válida de Google Apps Script.');
+    return;
+  }
+  config.gsWebAppUrl = url;
+  save();
+  closeModal('modalGSSetup');
+  showToast('✅ Conectado. Sincronizando...');
+  gsSetStatus('syncing', 'Conectando...', '');
+  document.getElementById('btnSincronizar') && (document.getElementById('btnSincronizar').style.display = '');
+  document.getElementById('btnDesconectar') && (document.getElementById('btnDesconectar').style.display = '');
+  document.getElementById('btnConectarGoogle') && (document.getElementById('btnConectarGoogle').style.display = 'none');
+  await gsSyncAll();
 }
 
 async function conectarGoogleSheets() {
@@ -3985,6 +4009,29 @@ initLogin();
 // Init Google Sheets status
 setTimeout(gsInit, 200);
 if(config.btDeviceName) setBtStatus('','Última impresora: '+config.btDeviceName+' (toca Buscar para reconectar)');
+
+// ── PWA SERVICE WORKER ──────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  const swCode = `
+const CACHE = 'mxoptica-v1';
+const ASSETS = ['/mxoptica/', '/mxoptica/index.html'];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).catch(()=>{}));
+  self.skipWaiting();
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));
+  self.clients.claim();
+});
+self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
+  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+});
+  `;
+  const blob = new Blob([swCode], {type: 'application/javascript'});
+  const swUrl = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl, {scope: '/mxoptica/'}).catch(()=>{});
+}
 </script>
 </body>
 </html>
